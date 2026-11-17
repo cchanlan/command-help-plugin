@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>{{title}}</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { background: transparent; }
+#container { width: 1000px; padding: 36px; color: #25262b; background: #f5f6f8; font-family: "Noto Sans CJK SC", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif; -webkit-font-smoothing: antialiased; }
+.header { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 4px 0 24px; margin-bottom: 22px; border-bottom: 1px solid #f0dfe6; }
+.intro { font-size: 19px; line-height: 1.6; color: #6f727a; font-weight: 400; }
+.help-title { font-size: 40px; line-height: 1.35; font-weight: 800; letter-spacing: 1px; color: #25262b; }
+.quick { flex: 0 0 auto; padding: 9px 0; }
+.quick-label { font-size: 13px; color: #878992; margin-right: 9px; }
+.quick-command { font-size: 17px; font-weight: 700; color: #e96088; }
+.groups { display: flex; flex-direction: column; gap: 27px; }
+.panel-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 15px; }
+.panel-title { color: #35373d; font-size: 19px; font-weight: 700; line-height: 1.5; }
+.directory { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.plugin { min-width: 0; padding: 15px 13px 14px; background: #fff; border: 1px solid #ececf0; border-radius: 10px; }
+.plugin-name { color: #31333a; font-size: 18px; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
+.plugin-command { color: #9698a1; margin-top: 5px; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.help-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.help-card { display: flex; flex-direction: column; min-width: 0; padding: 18px 16px 17px; background: #fff; border: 1px solid #ececf0; border-radius: 11px; }
+.card-top { margin-bottom: 9px; }
+h2 { font-size: 14px; font-weight: 500; line-height: 1.5; color: #93959e; }
+.command { font-size: 22px; font-weight: 700; line-height: 1.5; color: #e96088; overflow-wrap: anywhere; }
+.description { font-size: 15px; line-height: 1.65; color: #71747e; margin: 7px 0 14px; }
+.aliases { display: flex; flex-wrap: wrap; gap: 3px 0; margin-top: auto; }
+.alias-text { max-width: 100%; font-size: 12px; line-height: 1.8; color: #9597a0; overflow-wrap: anywhere; }
+.alias-text:not(:last-child)::after { content: " / "; white-space: pre; color: #b7b9c0; }
+.extra { font-size: 12px; color: #93959e; line-height: 1.7; margin-top: 9px; overflow-wrap: anywhere; }
+.outro { margin-top: 21px; padding-top: 16px; border-top: 1px solid #eeeef2; text-align: center; font-size: 13px; line-height: 1.7; color: #a0a2aa; letter-spacing: .5px; }
+</style>
+</head>
+<body>
+<div id="container">
+    <header class="header">
+      <p class="intro{{if kind !== 'directory'}} help-title{{/if}}">{{intro}}</p>
+      <div class="quick"><span class="quick-label">{{if kind === 'directory'}}使用帮助{{else}}插件目录{{/if}}</span><span class="quick-command">{{if kind === 'directory'}}#指令帮助{{else}}#指令{{/if}}</span></div>
+    </header>
+    {{if kind === 'directory'}}
+    <section class="directory-section">
+      <div class="directory">
+        {{each plugins item}}
+        <article class="plugin"><div class="plugin-name">{{item.name}}</div><div class="plugin-command">{{item.command}}</div></article>
+        {{/each}}
+      </div>
+    </section>
+    {{else}}
+    <div class="groups">
+      {{each helpGroups group}}
+      <section class="help-section">
+        <div class="panel-head"><div class="panel-title">{{group.title}}</div></div>
+        <div class="help-grid">
+          {{each group.list item}}
+          <article class="help-card">
+            <div class="card-top"><h2>{{item.title}}</h2></div>
+            <p class="command">{{item.command}}</p>
+            <p class="description">{{item.description}}</p>
+            <div class="aliases">{{each item.aliasList alias}}<span class="alias-text">{{alias}}</span>{{/each}}</div>
+            {{if item.extra}}<p class="extra">{{item.extra}}</p>{{/if}}
+          </article>
+          {{/each}}
+        </div>
+      </section>
+      {{/each}}
+    </div>
+    {{/if}}
+    <p class="outro">{{outro}}</p>
+</div>
+</body>
+</html>

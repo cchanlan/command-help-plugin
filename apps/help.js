@@ -1,78 +1,111 @@
 import plugin from '../../../lib/plugins/plugin.js'
 import loader from '../../../lib/plugins/loader.js'
-import { snapshot, findGroups, related, status } from '../utils/catalog.js'
+import { findGroups, related, visibleRules, normalizeName } from '../utils/catalog.js'
+import { getCatalog, visibleCatalog } from '../utils/searchIndex.js'
 import { matchRules } from '../utils/matcher.js'
-import { helpText, parseQuery, ruleText, sendPage } from '../utils/output.js'
+import { helpText, parseQuery, commandBlocks, conflictBlocks, sendPage } from '../utils/output.js'
+import { replyHelpImage } from '../utils/render.js'
+import { directoryGroups, pluginLabel } from '../utils/pluginNames.js'
+
+/** 整名优先，再按最长插件名前缀识别「插件 关键词」。 */
+export function resolveScope(groups, query, includeModules = false) {
+  const exact = text => {
+    const needle = normalizeName(text)
+    return groups.filter(group => [...(includeModules ? group.names : group.aliases), group.displayName, group.queryName].some(name => name && normalizeName(name) === needle))
+  }
+  const whole = exact(query)
+  if (whole.length) return { groups: whole, keyword: '' }
+  const spaces = [...query.matchAll(/\s+/g)].map(match => match.index).reverse()
+  // 先尝试准确的插件名前缀，不让「小火花体力阈值」这种模块名模糊匹配吞掉关键词。
+  for (const lookup of [exact, text => findGroups(groups, text, includeModules)]) {
+    for (const index of spaces) {
+      const found = lookup(query.slice(0, index))
+      if (found.length) return { groups: found, keyword: query.slice(index).trim() }
+    }
+  }
+  const fuzzy = findGroups(groups, query, includeModules)
+  return { groups: fuzzy, keyword: fuzzy.length ? '' : query }
+}
 
 export class CommandHelp extends plugin {
   constructor() {
     super({
-      name: '指令帮助', dsc: '指令目录、插件帮助、关键词与完整消息匹配',
+      name: '指令帮助', dsc: '插件目录、关键词检索、完整消息测试与冲突诊断',
       event: 'message', priority: -501,
       rule: [
-        { reg: /^#指令/, fnc: 'lookup' },
-        { reg: /^#测试命令/, fnc: 'test' },
+        { reg: /^#指令冲突/, fnc: 'conflict', desc: '查看规则匹配顺序与候选冲突' },
+        { reg: /^#指令/, fnc: 'lookup', desc: '查看插件目录或搜索指令' },
+        { reg: /^#测试命令/, fnc: 'test', desc: '只匹配完整消息，不执行命令' },
       ],
     })
   }
-
   async lookup(e) { return this.handle(e, '#指令') }
   async test(e) { return this.handle(e, '#测试命令') }
+  async conflict(e) { return this.handle(e, '#指令冲突') }
 
   async handle(e, prefix) {
     const { query, page, mode } = parseQuery(e.msg, prefix)
     if (query.length > 200) { await e.reply('查询内容请控制在200字以内'); return true }
-    if (mode === 'auto' && ['帮助', 'help'].includes(query.toLowerCase())) { await e.reply(helpText); return true }
-    if (mode === 'exact' && !query) { await e.reply('请发送：#测试命令#绑定'); return true }
     try {
-      const catalog = snapshot(loader)
+      if (mode === 'auto' && ['帮助', 'help'].includes(query.toLowerCase())) {
+        if (!await replyHelpImage(e, 'help')) await e.reply(helpText)
+        return true
+      }
+      if (['exact','conflict'].includes(mode) && !query) {
+        await e.reply(mode === 'exact' ? '请发送：#测试命令#绑定' : '请发送：#指令冲突 #绑定')
+        return true
+      }
+      const fullCatalog = await getCatalog(loader)
+      const catalog = visibleCatalog(fullCatalog, e, loader)
       let blocks = [], title
       if (mode === 'auto' && ['', '列表', '总览', '插件'].includes(query)) {
-        title = `指令目录 · ${catalog.groups.length}个插件 · ${catalog.rules.length}条规则`
-        blocks = [helpText, ...catalog.groups.map(group => `${group.folder} · ${group.rules.length}条规则\n模块：${[...group.names].filter(n => n !== group.folder).join('、') || group.folder}\n查看：#指令 ${group.folder}`)]
+        if (page === 1 && await replyHelpImage(e, 'directory', catalog)) return true
+        const visible = directoryGroups(catalog)
+        title = `指令目录 · ${visible.length}个插件`
+        blocks = [helpText, ...visible.map(group => `${group.folder}：#指令${pluginLabel(group).query}`)]
       } else {
-        const groups = ['auto', 'plugin'].includes(mode) ? findGroups(catalog.groups, query, mode === 'plugin') : []
-        if (groups.length) {
-          title = `插件指令 · ${groups.map(g => g.folder).join('、')} · ${groups.reduce((n, g) => n + g.rules.length, 0)}条规则`
-          for (const group of groups) {
-            blocks.push(...group.rules.map(record => ruleText(record, '', status(record, e, loader).notes)))
-            if (group.unruled.length) blocks.push(`${group.folder}\n未注册指令规则的模块：${[...new Set(group.unruled)].join('、')}`)
-          }
-        } else if (mode === 'plugin') {
-          blocks = [`没有找到「${query}」对应的插件\n查看目录：#指令`]
-          title = '插件指令'
+        const scope = ['auto','plugin'].includes(mode) ? resolveScope(catalog.groups, query, mode === 'plugin') : { groups: [], keyword: query }
+        if (scope.groups.length && !scope.keyword) {
+          title = `插件指令 · ${scope.groups.map(group => group.folder).join('、')}`
+          blocks = commandBlocks(visibleRules(scope.groups.flatMap(group => group.rules), e, loader))
+          if (!blocks.length) blocks.push('当前会话暂无可展示的指令')
+        } else if (mode === 'plugin' && !scope.groups.length) {
+          title = '插件指令'; blocks = ['没有找到对应插件，请发送：#指令']
         } else {
-          const normalized = typeof loader.dealText === 'function' ? loader.dealText(query) : query.replace(/^[＃井]/, '#').replace(/^[＊※]/, '*').trim()
-          const probe = { ...e, msg: normalized, message: [{ type: 'text', text: normalized }] }
-          const result = await matchRules(catalog.rules, [normalized])
+          const word = scope.groups.length ? scope.keyword : query
+          const normalized = typeof loader.dealText === 'function' ? loader.dealText(word) : word.replace(/^[＃井]/, '#').replace(/^[＊※]/, '*').trim()
+          const records = visibleRules(scope.groups.length ? scope.groups.flatMap(group => group.rules) : catalog.rules, e, loader)
+          const result = await matchRules(records, [normalized])
           if (result.busy) { await e.reply('查询较多，请稍后再试'); return true }
-          let direct = 0, nearby = 0, broad = 0
-          for (const record of catalog.rules) {
+          const direct = [], nearby = [], broad = []
+          for (const record of records) {
             const hit = result.matched.has(record.id)
-            if (!hit && (mode === 'exact' || !related(record, query))) continue
-            const state = status(record, probe, loader)
-            const wide = result.broad.has(record.id)
-            const label = wide ? '宽泛匹配' : hit ? '完整消息匹配' : '关键词相关'
-            if (hit) {
-              direct++
-              if (wide) broad++
-            } else nearby++
-            blocks.push({ rank: wide ? 2 : hit ? 0 : 1, text: ruleText(record, label, state.notes) })
+            if (!hit && (['exact','conflict'].includes(mode) || !related(record, word))) continue
+            if (result.broad.has(record.id)) {
+              if (['exact','conflict'].includes(mode)) broad.push(record)
+              else if (related(record, word)) nearby.push(record)
+            } else if (hit) direct.push(record)
+            else nearby.push(record)
           }
-          blocks.sort((a, b) => a.rank - b.rank)
-          blocks = blocks.map(item => item.text)
-          title = `「${query}」· ${direct}条匹配（含${broad}条宽泛规则）${mode === 'exact' ? '' : ` · ${nearby}条相关`}`
-          if (!blocks.length) blocks.push(result.incomplete || result.errors.length ? '本次查询未完成，请稍后再试' : `没有找到「${query}」的${mode === 'exact' ? '匹配规则' : '相关指令'}\n查看目录：#指令`)
+          if (mode === 'conflict') {
+            const all = records.filter(record => result.matched.has(record.id))
+            blocks = conflictBlocks(all, normalized, result.broad)
+            title = `冲突诊断：${word}`
+          } else {
+            const seen = new Set(), options = mode === 'exact' ? { exactText: normalized } : {}
+            blocks = [...commandBlocks(direct, '匹配指令', word, seen, options), ...commandBlocks(nearby, '相关指令', word, seen)]
+            if (broad.length) blocks.push(`其他消息响应插件\n${[...new Set(broad.filter(record => !record.internalExpanded).map(record => record.group))].join('、') || '暂无'}`)
+            title = scope.groups.length ? `插件内搜索：${scope.groups.map(group => group.folder).join('、')} · ${word}` : `搜索：${word}`
+          }
+          if (!blocks.length) blocks.push(result.incomplete || result.errors.length ? '本次查询未完成，请稍后再试' : '当前会话没有找到相关指令')
           if (result.incomplete || result.errors.length) {
             blocks.unshift('本次仅展示已完成的查询结果，请稍后再试')
-            globalThis.logger?.warn?.(`[指令帮助] 匹配不完整: checked=${result.checked.size}/${catalog.rules.length}, errors=${JSON.stringify(result.errors)}`)
+            globalThis.logger?.warn?.(`[指令帮助] 匹配不完整 ${result.checked.size}/${records.length}: ${JSON.stringify(result.errors)}`)
           }
         }
       }
-      if (catalog.unavailable) {
-        blocks.unshift('部分插件暂未提供指令目录')
-        globalThis.logger?.warn?.(`[指令帮助] ${catalog.unavailable} 个加载器条目没有可读取的已加载实例`)
-      }
+      if (fullCatalog.unavailable) blocks.unshift('部分插件暂未提供指令目录')
+      if (fullCatalog.internalWarnings?.length && e.isMaster) blocks.unshift('部分插件的内部指令暂未展开')
       await sendPage(e, blocks, title, page, e.msg)
     } catch (error) {
       globalThis.logger?.error?.(`[指令帮助] 查询失败: ${error.stack || error}`)

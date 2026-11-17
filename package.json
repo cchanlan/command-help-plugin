@@ -7,5 +7,22 @@
     "node": ">=18.17.0"
   },
   "license": "MIT",
-  "author": "cchanlan"
+  "author": "cchanlan",
+  "dependencies": {
+    "acorn": "^8.15.0"
+  },
+  "homepage": "https://gitee.com/longhengmu/command-help-plugin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cchanlan/command-help-plugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cchanlan/command-help-plugin/issues"
+  },
+  "keywords": [
+    "yunzai",
+    "jiuli",
+    "plugin",
+    "command-help"
+  ]
 }

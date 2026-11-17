@@ -8,7 +8,13 @@ const { parentPort, workerData } = await import('node:worker_threads')
 for (const record of workerData.rules) {
   try {
     const reg = new RegExp(record.source, record.flags)
-    const test = text => { reg.lastIndex = 0; return reg.test(text) }
+    const test = text => {
+      reg.lastIndex = 0
+      if (!reg.test(text)) return false
+      if (!record.parentSource) return true
+      const parent = new RegExp(record.parentSource, record.parentFlags || '')
+      return parent.test(text)
+    }
     let matched = false
     for (const text of workerData.texts) {
       if (test(text)) { matched = true; break }
@@ -39,7 +45,7 @@ export async function matchRules(rules, texts, timeout = 2500) {
       try {
         worker = new Worker(workerCode, {
           eval: true,
-          workerData: { rules: rules.map(({ id, source, flags }) => ({ id, source, flags })), texts: [...new Set(texts)] },
+          workerData: { rules: rules.map(({ id, source, flags, parent }) => ({ id, source, flags, parentSource: parent?.source, parentFlags: parent?.flags })), texts: [...new Set(texts)] },
           resourceLimits: { maxOldGenerationSizeMb: 64 },
         })
         timer = setTimeout(() => finish(true), timeout)

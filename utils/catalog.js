@@ -1,3 +1,7 @@
+import { commandNames } from './commands.js'
+import { pluginLabel, normalizeName } from './pluginNames.js'
+export { normalizeName } from './pluginNames.js'
+
 /** 只读加载器中的实例；绝不重新 new 插件、扫描源码或执行插件钩子。 */
 export function snapshot(loader) {
   if (!Array.isArray(loader?.priority)) throw new Error('当前框架未提供 priority 注册表')
@@ -36,16 +40,21 @@ export function snapshot(loader) {
       group.rules.push(record)
     }
   }
+  for (const group of groups.values()) {
+    const label = pluginLabel(group)
+    group.displayName = label.name
+    group.queryName = label.query
+    for (const name of [label.name, label.query]) { group.names.add(name); group.aliases.add(name) }
+  }
   return { groups: [...groups.values()], rules, unavailable }
-}
-
-export function normalizeName(value) {
-  return String(value).toLowerCase().replace(/[\s_\-\[\]【】]/g, '').replace(/插件|plugin/g, '')
 }
 
 export function findGroups(groups, query, includeModules = false) {
   const needle = normalizeName(query)
   if (!needle) return []
+  // 首选确定的展示名，避免 wiki 的模块品牌「喵喵」抢走喵喵插件查询。
+  const preferred = groups.filter(group => [group.displayName, group.queryName].some(name => name && normalizeName(name) === needle))
+  if (preferred.length) return preferred
   const names = group => [...(includeModules ? group.names : group.aliases || group.names)]
   const exact = groups.filter(g => names(g).some(name => normalizeName(name) === needle))
   return exact.length ? exact : groups.filter(g => names(g).some(name => normalizeName(name).includes(needle)))
@@ -61,7 +70,7 @@ export function searchable(source) {
 
 export function related(record, query) {
   const word = query.replace(/^[#＃*＊]/, '').trim().toLowerCase()
-  return Boolean(word) && (searchable(record.source).includes(word) || record.description.toLowerCase().includes(word))
+  return Boolean(word) && (record.searchText || [searchable(record.source), record.description, record.sourceDescription, ...commandNames(record.source, record.flags).commands].join(' ').toLowerCase()).includes(word)
 }
 
 function eventFits(e, expression) {
@@ -69,22 +78,34 @@ function eventFits(e, expression) {
   return String(expression).split('.').every((part, i) => part === '*' || part === String(e[keys[i]] ?? ''))
 }
 
-/** filtPermission 会发送「无权限」，不能调用它测试。 */
+/** 纯检查：不得调用会向会话回复的 filtPermission。 */
 export function status(record, e, loader) {
   const notes = []
-  if (!eventFits(e, record.instance.event || 'message') || !eventFits(e, record.event)) notes.push('当前会话不适用')
+  let eligible = true
+  if (!eventFits(e, record.instance.event || 'message') || !eventFits(e, record.event)) { notes.push('当前会话不适用'); eligible = false }
   try {
-    if (typeof loader.checkDisable === 'function' && !loader.checkDisable({ plugin: record.instance, e })) notes.push('当前会话已禁用')
+    if (typeof loader.checkDisable === 'function' && !loader.checkDisable({ plugin: record.instance, e })) { notes.push('当前会话已禁用'); eligible = false }
   } catch (error) {
-    notes.push('启用状态待确认')
+    notes.push('启用状态待确认'); eligible = false
     globalThis.logger?.debug?.(`[指令帮助] 读取启用状态失败 ${record.key}: ${error.message}`)
   }
-  const permission = record.rule.permission || 'all'
-  const labels = { master: '仅主人', owner: '仅群主', admin: '仅群管理员', all: '所有人' }
+  const permission = record.sourcePermission || record.rule.permission || 'all'
+  const labels = { master: '仅主人', owner: '仅群主', admin: '仅群管理员' }
   if (permission !== 'all') notes.push(labels[permission] || `权限：${permission}`)
-  const member = e.member || {}, role = e.sender?.role || e.sender_role
-  const isGroup = e.isGroup || e.message_type === 'group'
-  const blocked = !e.isMaster && (permission === 'master' || (isGroup && ((permission === 'owner' && !member.is_owner && role !== 'owner') || (permission === 'admin' && !member.is_owner && !member.is_admin && role !== 'owner' && role !== 'admin'))))
-  // 私聊 admin/owner 按宿主语义不额外阻断；未知权限不冒充已验证。
-  return { notes, eligible: !blocked && !notes.some(n => ['当前会话不适用', '当前会话已禁用', '启用状态待确认'].includes(n)) && ['all', 'master', 'owner', 'admin'].includes(permission) }
+  if (!e.isMaster) {
+    const member = e.member || {}, role = e.sender?.role || e.sender_role
+    const isGroup = e.isGroup || e.message_type === 'group'
+    if (permission === 'master' || !['all','master','owner','admin'].includes(permission) || isGroup && (permission === 'owner' && !member.is_owner && role !== 'owner' || permission === 'admin' && !member.is_owner && !member.is_admin && role !== 'owner' && role !== 'admin')) eligible = false
+  }
+  if (record.parent) {
+    const parentState = status(record.parent, e, loader)
+    eligible = eligible && parentState.eligible
+    for (const note of parentState.notes) if (!notes.includes(note)) notes.push(note)
+  }
+  return { notes, eligible }
+}
+
+/** 普通用户只看当前可用规则；主人保留全部候选并显示限制。 */
+export function visibleRules(records, e, loader) {
+  return records.map(record => ({ ...record, availability: status(record, e, loader) })).filter(record => e.isMaster || record.availability.eligible)
 }
