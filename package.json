@@ -1,0 +1,11 @@
+{
+  "name": "command-help-plugin",
+  "version": "0.1.0",
+  "description": "从已加载规则生成指令目录、插件帮助与安全匹配检索",
+  "type": "module",
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "license": "MIT",
+  "author": "cchanlan"
+}
