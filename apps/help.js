@@ -6,6 +6,7 @@ import { matchRules } from '../utils/matcher.js'
 import { helpText, parseQuery, commandBlocks, conflictBlocks, sendPage } from '../utils/output.js'
 import { replyHelpImage } from '../utils/render.js'
 import { directoryGroups, pluginLabel } from '../utils/pluginNames.js'
+import { updatePlugin } from '../utils/updater.js'
 
 /** 整名优先，再按最长插件名前缀识别「插件 关键词」。 */
 export function resolveScope(groups, query, includeModules = false) {
@@ -33,6 +34,7 @@ export class CommandHelp extends plugin {
       name: '指令帮助', dsc: '插件目录、关键词检索、完整消息测试与冲突诊断',
       event: 'message', priority: -501,
       rule: [
+        { reg: /^#指令更新$/, fnc: 'update', desc: '更新指令帮助插件', permission: 'master' },
         { reg: /^#指令冲突/, fnc: 'conflict', desc: '查看规则匹配顺序与候选冲突' },
         { reg: /^#指令/, fnc: 'lookup', desc: '查看插件目录或搜索指令' },
         { reg: /^#测试命令/, fnc: 'test', desc: '只匹配完整消息，不执行命令' },
@@ -42,6 +44,22 @@ export class CommandHelp extends plugin {
   async lookup(e) { return this.handle(e, '#指令') }
   async test(e) { return this.handle(e, '#测试命令') }
   async conflict(e) { return this.handle(e, '#指令冲突') }
+
+  async update(e) {
+    // 双重主人检查，避免其他兼容框架没有 permission 钩子时暴露 Git 更新操作。
+    if (!e.isMaster) return true
+    const task = updatePlugin()
+    if (task.kind === 'busy') { await e.reply('更新正在进行中，请稍后查看。'); return true }
+    await e.reply('正在更新指令帮助插件。')
+    const result = await task.promise
+    if (result.kind === 'dependencies-failed') {
+      await e.reply(`${result.updated ? '代码已更新，' : ''}依赖安装失败。请确认 pnpm 可用后重发 #指令更新。`)
+    } else if (result.kind === 'updated') {
+      await e.reply(result.dependenciesInstalled ? (result.updated ? '代码和依赖已更新。' : '依赖已更新。') : '指令帮助插件已更新。')
+    } else if (result.kind === 'current') await e.reply('指令帮助插件已是最新版本。')
+    else await e.reply('更新失败，请查看运行日志。')
+    return true
+  }
 
   async handle(e, prefix) {
     const { query, page, mode } = parseQuery(e.msg, prefix)

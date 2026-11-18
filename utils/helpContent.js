@@ -6,6 +6,7 @@ export const helpSections = [
   { title: '按关键词搜索', command: '#指令绑定', description: '搜索这个词对应的指令。', aliases: '#指令<关键词> / #指令 <关键词> / #指令+<关键词>', extra: '只搜关键词：#指令 搜索 <关键词>' },
   { title: '测试完整消息', command: '#测试命令#绑定', description: '查看匹配的插件，不执行被测指令。', aliases: '#测试命令<完整消息> / #测试命令 <完整消息>' },
   { title: '查看下一页', command: '#指令小火花 第2页', description: '在原查询后加「第N页」，查看更多结果。', aliases: '<原查询> 第N页' },
+  { title: '更新插件', command: '#指令更新', description: '主人更新指令帮助插件。', aliases: '仅主人可用' },
   { title: '插件内搜索', command: '#指令 小火花 体力', description: '只在指定插件里搜索名称和说明。', aliases: '#指令 <插件名> <关键词>', extra: '明确指定：#指令 插件 <插件名> <关键词>' },
   { title: '指令冲突诊断', command: '#指令冲突 #绑定', description: '按匹配顺序查看候选，不执行命令。', aliases: '#指令冲突<完整消息> / #指令冲突 <完整消息>' },
 ]

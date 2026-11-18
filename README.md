@@ -11,6 +11,7 @@
 - `#指令 小火花 体力`：只搜指定插件。
 - `#测试命令#绑定`：匹配完整消息，保留实际被测写法，不执行业务。
 - `#指令冲突 #绑定`：按加载器顺序列出匹配候选、优先级和场景限制。
+- `#指令更新`：仅主人可用，更新插件和依赖。
 - 已加载 xiaoyao 的 Apps.rule 分发器可静态展开内部规则；未适配的其他分发器不冒充已抓全。
 
 ## 安装
@@ -38,8 +39,12 @@ git clone https://github.com/cchanlan/command-help-plugin.git ./plugins/command-
 **安装依赖**
 
 ```sh
-npm --prefix ./plugins/command-help-plugin install --workspaces=false --ignore-scripts
+cd ./plugins/command-help-plugin && pnpm i --ignore-workspace
 ```
+
+**更新插件**
+
+主人发送 `#指令更新` 更新插件，依赖有变化会自动安装。安装失败时，确认 pnpm 可用后重发指令。
 
 启动机器人后发送 `#指令帮助`。JiuLi 可自动加载新增插件；未自动加载时按宿主框架的方式重启机器人。
 
@@ -55,6 +60,7 @@ npm --prefix ./plugins/command-help-plugin install --workspaces=false --ignore-s
 #指令 小火花 体力
 #测试命令#绑定
 #指令冲突 #绑定
+#指令更新
 ```
 
 把“小火花”换成自己安装的插件中文名或目录名即可。插件名和关键词重名时使用 `#指令 搜索 <关键词>`。
@@ -87,6 +93,7 @@ npm --prefix ./plugins/command-help-plugin install --workspaces=false --ignore-s
 | `#指令 <插件名> <关键词>`、`#指令 插件 <插件名> <关键词>` | 插件内搜索，例如 `#指令 小火花 体力` |
 | `#测试命令<完整消息>`、`#测试命令 <完整消息>` | 完整消息匹配，不执行 |
 | `#指令冲突<完整消息>`、`#指令冲突 <完整消息>` | 只读候选冲突诊断 |
+| `#指令更新` | 仅主人；更新插件并自动安装变更的依赖 |
 | `<以上查询> 第N页` | 翻页，例如 `#指令 小火花 体力 第2页` |
 
 查询最多 200 个 UTF-16 代码单元，页码后缀不计入；`+` 只在 `#指令` 后作为可选分隔符。`#测试命令`、`#指令冲突` 后的 `+` 是被测消息内容。

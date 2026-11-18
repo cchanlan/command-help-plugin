@@ -15,10 +15,10 @@ export function imageData(kind, catalog) {
     outro: '随用随查，不必记住所有指令。',
     sections: helpSections,
     helpGroups: [
-      { title: '常用入口', list: helpSections.slice(0, 2) },
-      { title: '查找指令', list: helpSections.slice(2, 4) },
-      { title: '匹配与翻页', list: helpSections.slice(4, 6) },
-      { title: '插件内检索与诊断', list: helpSections.slice(6, 8) },
+      { title: '常用入口', list: [helpSections[0], helpSections[1]] },
+      { title: '查找指令', list: [helpSections[2], helpSections[3]] },
+      { title: '匹配与诊断', list: [helpSections[4], helpSections[8]] },
+      { title: '翻页与维护', list: [helpSections[5], helpSections[6], helpSections[7]] },
     ].map(group => ({ ...group, list: group.list.map(item => ({
       ...item,
       aliasList: item.aliases.split(' / '),
