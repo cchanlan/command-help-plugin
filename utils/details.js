@@ -15,10 +15,11 @@ export function ruleDetails(record) {
   const module = [instance.dsc, instance.desc, instance.description].map(value => brief(value)).find(Boolean)
   const name = brief(record.name?.replace(/^[\[【][^\]】]+[\]】]\s*/, '').replace(/^[^:：]+[:：]\s*/, ''))
   const source = brief(record.sourceDescription)
-  const description = own || source || module || name || '暂无说明'
+  const supplied = brief(record.metadata?.description)
+  const description = supplied || own || source || module || name || '暂无说明'
   let priority = Number(record.entry?.priority)
   if (record.entry?.priority === undefined || record.entry?.priority === null || Number.isNaN(priority)) priority = Number(instance.priority)
   if (instance.priority === undefined && (record.entry?.priority === undefined || record.entry?.priority === null) || Number.isNaN(priority)) priority = 5000
   const priorityText = priority === -Infinity ? '-∞' : priority === Infinity ? '+∞' : String(priority)
-  return { description, descriptionSource: own ? 'rule' : source ? 'source' : module ? 'module' : name ? 'name' : 'missing', descriptionLabel: own || source ? '说明' : module ? '模块说明' : name ? '功能名称' : '说明', priority, priorityText }
+  return { description, descriptionSource: supplied ? 'metadata' : own ? 'rule' : source ? 'source' : module ? 'module' : name ? 'name' : 'missing', descriptionLabel: supplied || own || source ? '说明' : module ? '模块说明' : name ? '功能名称' : '说明', priority, priorityText }
 }

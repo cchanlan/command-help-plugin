@@ -59,6 +59,7 @@ h2{font-size:16px;line-height:1.6;font-weight:500;color:#7c608f}
 .group-match h2{font-size:14px;color:#cbb4d9}
 .group-match .command{font-size:25px;color:#ffafd2;margin-top:7px}
 .group-match .description{font-size:14px;color:#eee3f4;margin-top:7px}
+.group-match .extra{color:#d9b5ec}
 .group-match .aliases{font-size:12px;color:#bbacc6;margin-top:10px}
 .group-match .alias-text{display:block}
 .group-match .alias-text::after{content:none}
@@ -85,14 +86,36 @@ h2{font-size:16px;line-height:1.6;font-weight:500;color:#7c608f}
 .page-number{color:#614775;font-weight:700;letter-spacing:1px}
 .next{font-size:15px;color:#fff;background:#c44888;border-radius:30px;padding:10px 20px;font-weight:600}
 .empty{padding:55px 0;text-align:center;font-size:20px;color:#8d7a9a}
+.group-favorites .help-grid{gap:26px;padding:21px 24px;background:#faf3f8;border-radius:18px}
+.group-favorites .command{color:#c33e7e;font-size:24px}.group-favorites .description{font-size:14px}
+.group-maintain .help-grid{grid-template-columns:1fr;gap:15px}
+.group-maintain .help-card{grid-template-columns:110px 180px 1fr}
+.group-maintain .command{font-size:22px}.group-maintain .extra{grid-column:3;justify-self:end}
+.plugin-hero h1{font-size:54px;letter-spacing:1px;max-width:700px;overflow-wrap:anywhere}
+.plugin-summary{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px 0;border-top:2px solid #65437f;border-bottom:1px solid #eee7f1;color:#8a7894;font-size:14px}
+.plugin-summary strong{color:#c84082;font-size:25px;margin-right:6px}.plugin-summary b{color:#664481;font-weight:600}
+.category{margin-top:24px}.category-head{font-size:17px;color:#887193;display:flex;gap:12px;align-items:center;margin-bottom:14px;font-weight:600;overflow-wrap:anywhere}
+.category-head::before{content:"";width:5px;height:17px;border-radius:3px;background:#d4498b;flex-shrink:0}
+.command-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 30px}
+.command-card{min-width:0;padding:17px 0 20px;border-top:1px solid #ece6f1}
+.command-card:nth-child(even) .usage{color:#bf3e7c}
+.card-title{font-size:14px;color:#9a839f;line-height:1.6;overflow-wrap:anywhere}
+.usage{font-size:26px;line-height:1.55;font-weight:800;color:#62407f;margin:5px 0 9px;overflow-wrap:anywhere}
+.card-description{font-size:15px;color:#76677e;line-height:1.8;overflow-wrap:anywhere}
+.examples{margin-top:14px;border-left:3px solid #e9b7d3;padding-left:12px;font-size:14px;line-height:1.9;color:#ad477e;overflow-wrap:anywhere}
+.examples small{display:block;font-size:11px;color:#aa90a8;letter-spacing:2px}
+.command-aliases{margin-top:11px;font-size:12px;line-height:1.9;color:#9c87a6;overflow-wrap:anywhere}
+.card-note{margin-top:9px;font-size:12px;line-height:1.7;color:#a18eaa;overflow-wrap:anywhere}
+.card-footer{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:17px 20px;margin-top:22px;border-radius:14px;background:#f6eef9;font-size:13px;color:#8c7499;line-height:1.8}
+.card-footer b{font-size:16px;color:#70428d;overflow-wrap:anywhere}.card-footer span{max-width:65%}
 </style>
 </head>
 <body>
 <div id="container">
-  <header class="hero">
-    <p class="eyebrow">COMMAND HELP / {{if kind === 'directory'}}插件索引{{else}}使用指南{{/if}}</p>
-    <h1>{{if kind === 'directory'}}插件<span>目录</span>{{else}}指令<span>帮助</span>{{/if}}</h1>
-    <p class="hero-description">{{if kind === 'directory'}}按插件查找，发现更多功能。{{else}}查得到指令，也看得懂匹配。{{/if}}</p>
+  <header class="hero {{if kind === 'plugin'}}plugin-hero{{/if}}">
+    <p class="eyebrow">COMMAND HELP / {{if kind === 'directory'}}插件索引{{else if kind === 'plugin'}}插件指令{{else}}使用指南{{/if}}</p>
+    <h1>{{if kind === 'directory'}}插件<span>目录</span>{{else if kind === 'plugin'}}{{title}}<span>速览</span>{{else}}指令<span>帮助</span>{{/if}}</h1>
+    <p class="hero-description">{{if kind === 'directory'}}按插件查找，发现更多功能。{{else if kind === 'plugin'}}把常用功能，放在一眼就能找到的地方。{{else}}查得到指令，也看得懂匹配。{{/if}}</p>
     <div class="hero-art" aria-hidden="true"><span class="hash">#</span><i class="spark"></i></div>
   </header>
   <main class="body-content">
@@ -103,6 +126,21 @@ h2{font-size:16px;line-height:1.6;font-weight:500;color:#7c608f}
     </div>
     {{if !plugins.length}}<p class="empty">当前会话暂无可展示的插件</p>{{/if}}
     <div class="page-nav"><span class="page-number">第 {{page}} / {{pages}} 页</span>{{if nextCommand}}<span class="next">下一页 · {{nextCommand}}</span>{{else if plugins.length}}<span>已显示全部插件</span>{{/if}}</div>
+  {{else if kind === 'plugin'}}
+    <div class="plugin-summary"><span><strong>{{total}}</strong> 个功能条目</span><span>第 <b>{{page}} / {{pages}}</b> 页 · 按功能浏览</span></div>
+    {{each categories category}}<section class="category">
+      <h2 class="category-head">{{category.title}}</h2><div class="command-grid">
+      {{each category.cards card}}<article class="command-card">
+        <p class="card-title">{{card.title}}</p><p class="usage">{{card.command}}</p><p class="card-description">{{card.description}}</p>
+        {{if card.examples.length}}<div class="examples"><small>试着这样用</small>{{each card.examples example}}<p>{{example}}</p>{{/each}}</div>{{/if}}
+        {{if card.aliases.length}}<p class="command-aliases">别名 · {{each card.aliases alias}}{{alias}} {{/each}}{{if card.moreAliases}}等 {{card.moreAliases + card.aliases.length}} 个{{/if}}</p>{{/if}}
+        {{if card.uncertain}}<p class="card-note">完整用法请查看该插件帮助</p>{{/if}}
+        {{if card.notes.length}}<p class="card-note">{{each card.notes note}}{{note}} {{/each}}</p>{{/if}}
+      </article>{{/each}}</div>
+    </section>{{/each}}
+    {{if !cards.length}}<p class="empty">当前会话暂无可展示的指令</p>{{/if}}
+    <div class="card-footer"><span>想复制用法？查看文字版<br><b>{{textCommand}}</b></span><span>收藏入口<br><b>#指令收藏 &lt;指令名称&gt;</b></span></div>
+    <div class="page-nav"><span class="page-number">第 {{page}} / {{pages}} 页</span>{{if nextCommand}}<span class="next">下一页 · {{nextCommand}}</span>{{else}}<span>已显示全部功能条目</span>{{/if}}</div>
   {{else}}
     <div class="groups">
       {{each helpGroups group}}<section class="group-{{group.id}}">
@@ -118,7 +156,7 @@ h2{font-size:16px;line-height:1.6;font-weight:500;color:#7c608f}
     </div>
   {{/if}}
   </main>
-  <footer class="footer"><span class="footer-brand">指令帮助 · COMMAND HELP</span><span>{{if kind === 'directory'}}插件名 / 查询指令{{else}}更多参数用法，请查看对应插件的帮助{{/if}}</span></footer>
+  <footer class="footer"><span class="footer-brand">指令帮助 · COMMAND HELP</span><span>{{if kind === 'directory'}}插件名 / 查询指令{{else if kind === 'plugin'}}示例来自插件帮助资料{{else}}多词检索 · 参数用法 · 常用收藏{{/if}}</span></footer>
 </div>
 </body>
 </html>

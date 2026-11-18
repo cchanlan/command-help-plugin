@@ -2,6 +2,7 @@ import { snapshot, searchable, status } from './catalog.js'
 import { commandNames } from './commands.js'
 import { enrichDescriptions } from './sourceDescriptions.js'
 import { expandInternalRules } from './internalRules.js'
+import { enrichMetadata } from './metadata.js'
 
 const states = new WeakMap(), identities = new WeakMap()
 let nextIdentity = 0, nextVersion = 0
@@ -23,18 +24,19 @@ export function registrySignature(loader) {
   }))
 }
 
-export async function getCatalog(loader) {
+export async function getCatalog(loader, { force = false } = {}) {
   const signature = registrySignature(loader)
   let state = states.get(loader)
-  if (!state || state.signature !== signature || state.expires < Date.now()) {
+  if (force || !state || state.signature !== signature || state.expires < Date.now()) {
     state = { signature, expires: Date.now() + 30000 }
     state.promise = (async () => {
       const catalog = await expandInternalRules(snapshot(loader))
-      await enrichDescriptions(catalog.rules)
+      await enrichDescriptions(catalog.rules, { force })
+      await enrichMetadata(catalog)
       for (const record of catalog.rules) {
         const names = commandNames(record.source, record.flags)
         record.commands = names
-        record.searchText = [searchable(record.source), record.description, record.sourceDescription, ...names.commands].join(' ').toLowerCase()
+        record.searchText = [searchable(record.source), record.description, record.sourceDescription, record.metadata?.title, record.metadata?.description, record.metadata?.usage, ...(record.metadata?.aliases || []), ...names.commands].join(' ').toLowerCase()
       }
       catalog.version = ++nextVersion
       catalog.createdAt = Date.now()

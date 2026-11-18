@@ -9,7 +9,7 @@ const pluginName = path.basename(root.replace(/[\\/]$/, ''))
 export const DIRECTORY_PAGE_SIZE = 24
 const sections = [
   ['entry', '从这里开始'], ['search', '找到你要的指令'],
-  ['match', '测试与排查'], ['maintain', '插件维护'],
+  ['match', '测试与排查'], ['favorites', '收藏常用指令'], ['maintain', '主人维护'],
 ]
 export function imageData(kind, catalog, page = 1) {
   const plugins = kind === 'directory' ? directoryGroups(catalog).map(group => ({
@@ -29,12 +29,13 @@ export function imageData(kind, catalog, page = 1) {
   }
 }
 
-/** 固定两份 HTML 必须串行；超时后隔离未结束的截图，不冒险并发覆盖。
+/** 固定保存名的 HTML 必须串行；超时后隔离未结束的截图，不冒险并发覆盖。
  * 熔断期间直接文字回退，底层截图真正结束才恢复服务。
  */
 export function createImageService(render, { timeoutMs = 10000, ttlMs = 30000, capacity = 4 } = {}) {
   const pending = new Map(), cache = new Map(), queue = []
   let active = null
+  const metrics = { rendered: 0, cacheHits: 0, failures: 0, timeouts: 0, lastFailure: '' }
   const finish = (job, result) => {
     if (job.done) return
     job.done = true; clearTimeout(job.timer)
@@ -47,6 +48,7 @@ export function createImageService(render, { timeoutMs = 10000, ttlMs = 30000, c
     if (!job) return
     if (job.done) { pump(); return }
     active = job
+    metrics.rendered++
     Promise.resolve().then(() => render(job.kind, job.data)).then(image => {
       if (!job.done && image) {
         const bytes = image?.file?.byteLength || image?.data?.file?.byteLength || image?.byteLength || (typeof image?.file === 'string' ? image.file.length : 0)
@@ -55,16 +57,18 @@ export function createImageService(render, { timeoutMs = 10000, ttlMs = 30000, c
           cache.set(job.key, { image, expires: Date.now() + ttlMs })
         }
       }
+      if (!image) { metrics.failures++; metrics.lastFailure = '渲染器未返回图片' }
       finish(job, image || false)
     }).catch(error => {
+      metrics.failures++; metrics.lastFailure = '出图失败，详细原因见日志'
       globalThis.logger?.warn?.(`[指令帮助] 出图失败: ${error.message}`)
       finish(job, false)
     }).finally(() => { active = null; pump() })
   }
-  return (kind, data) => {
+  const request = (kind, data) => {
     const key = JSON.stringify([kind, data])
     const cached = cache.get(key)
-    if (cached?.expires > Date.now()) return Promise.resolve(cached.image)
+    if (cached?.expires > Date.now()) { metrics.cacheHits++; return Promise.resolve(cached.image) }
     if (cached) cache.delete(key)
     if (pending.has(key)) return pending.get(key).promise
     if (active?.done || pending.size >= capacity) return Promise.resolve(false)
@@ -72,6 +76,7 @@ export function createImageService(render, { timeoutMs = 10000, ttlMs = 30000, c
     const promise = new Promise(done => { resolve = done })
     const job = { key, kind, data, promise, resolve, done: false }
     job.timer = setTimeout(() => {
+      metrics.timeouts++; metrics.lastFailure = '截图超时，已回退文字'
       finish(job, false)
       if (active === job) {
         for (const waiting of queue.splice(0)) finish(waiting, false)
@@ -81,6 +86,8 @@ export function createImageService(render, { timeoutMs = 10000, ttlMs = 30000, c
     pending.set(key, job); queue.push(job); pump()
     return promise
   }
+  request.status = () => ({ ...metrics, pending: pending.size, stalled: Boolean(active?.done), cacheEntries: cache.size })
+  return request
 }
 
 const imageService = createImageService(async (kind, data) => {
@@ -101,4 +108,13 @@ export async function replyHelpImage(e, kind, catalog, page = 1) {
   if (!image) return false
   try { return sendSucceeded(await e.reply(image)) }
   catch (error) { globalThis.logger?.warn?.(`[指令帮助] 图片发送失败: ${error.message}`); return false }
+}
+
+export const getImageStatus = () => imageService.status()
+export async function replyPluginImage(e, data) {
+  try {
+    const image = await imageService('plugin', data)
+    if (!image) return false
+    return sendSucceeded(await e.reply(image))
+  } catch (error) { globalThis.logger?.warn?.(`[指令帮助] 指令卡片发送失败: ${error.message}`); return false }
 }

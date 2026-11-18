@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "commands": [
+    {
+      "match": {
+        "fnc": "lookup"
+      },
+      "title": "查找插件与指令",
+      "category": "查找与复制",
+      "description": "查看插件目录或按名称、说明搜索。多个关键词用空格隔开。",
+      "usage": "#指令 <插件名或关键词>",
+      "examples": [
+        "#指令小火花",
+        "#指令 搜索 签到 自动",
+        "#指令 小火花 体力"
+      ],
+      "aliases": [
+        "查指令",
+        "搜索命令"
+      ]
+    },
+    {
+      "match": {
+        "fnc": "text"
+      },
+      "title": "复制完整文字",
+      "category": "查找与复制",
+      "description": "完整列出指令名称、别名、说明和适用限制，方便复制。",
+      "usage": "#指令文字 <插件名>",
+      "examples": [
+        "#指令文字 小火花",
+        "#指令文字 小火花 第2页"
+      ]
+    },
+    {
+      "match": {
+        "fnc": "favorites"
+      },
+      "title": "我的常用收藏",
+      "category": "常用收藏",
+      "description": "不带参数时查看自己的收藏；加目录里的指令名称即可收藏。",
+      "usage": "#指令收藏 [指令名称]",
+      "examples": [
+        "#指令收藏 #指令帮助",
+        "#常用指令",
+        "#常用指令 #指令帮助"
+      ]
+    },
+    {
+      "match": {
+        "fnc": "removeFavorite"
+      },
+      "title": "取消一条收藏",
+      "category": "常用收藏",
+      "description": "用常用指令列表中的序号取消收藏；不会影响其他用户。",
+      "usage": "#取消收藏 <序号>",
+      "examples": [
+        "#取消收藏 1"
+      ]
+    },
+    {
+      "match": {
+        "fnc": "test"
+      },
+      "title": "测试完整消息",
+      "category": "测试与排查",
+      "description": "只检查注册规则是否匹配，不执行被测命令。",
+      "usage": "#测试命令 <完整消息>",
+      "examples": [
+        "#测试命令 #绑定",
+        "#测试命令 #指令 第2页",
+        "#测试命令 --页=2 -- #绑定"
+      ]
+    },
+    {
+      "match": {
+        "fnc": "conflict"
+      },
+      "title": "诊断匹配冲突",
+      "category": "测试与排查",
+      "description": "按加载顺序列出匹配候选、优先级与场景限制。",
+      "usage": "#指令冲突 <完整消息>",
+      "examples": [
+        "#指令冲突 #绑定",
+        "#指令冲突 --页=2 -- #绑定"
+      ]
+    },
+    {
+      "match": {
+        "fnc": "health"
+      },
+      "title": "查看运行状态",
+      "category": "主人维护",
+      "description": "查看目录覆盖、说明缺失、源码缓存和出图状态。",
+      "usage": "#指令状态",
+      "examples": [
+        "#指令状态"
+      ]
+    },
+    {
+      "match": {
+        "fnc": "refresh"
+      },
+      "title": "手动刷新目录",
+      "category": "主人维护",
+      "description": "立即重新检查注册规则、源码说明和帮助资料。",
+      "usage": "#指令刷新",
+      "examples": [
+        "#指令刷新"
+      ]
+    },
+    {
+      "match": {
+        "fnc": "update"
+      },
+      "title": "更新插件",
+      "category": "主人维护",
+      "description": "从当前官方来源更新本插件；有本地修改时保留修改并停止。",
+      "usage": "#指令更新",
+      "examples": [
+        "#指令更新"
+      ]
+    }
+  ]
+}

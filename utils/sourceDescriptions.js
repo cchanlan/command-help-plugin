@@ -4,7 +4,18 @@ import { fileURLToPath } from 'node:url'
 import { brief } from './details.js'
 
 const pluginsRoot = fileURLToPath(new URL('../../', import.meta.url))
-const cache = new Map()
+const cache = new Map(), fileCache = new Map()
+const metrics = { filesParsed: 0, cacheHits: 0, errors: 0, scans: 0 }
+export const getDescriptionStats = () => ({ ...metrics, filesCached: fileCache.size })
+export function clearDescriptionCache() { cache.clear() }
+const combine = (target, data) => {
+  for (const key of ['rules', 'regexes', 'methods']) for (const [name, values] of data[key]) for (const value of values) remember(target[key], name, value)
+  for (const key of data.guards) target.guards.add(key)
+}
+const keepFile = (file, value) => {
+  if (!fileCache.has(file) && fileCache.size >= 3000) fileCache.delete(fileCache.keys().next().value)
+  fileCache.set(file, value)
+}
 const directories = new Set(['apps', 'app', 'utils', 'models', 'model', 'components', 'local', 'modules', 'host', 'adapter'])
 let parserPromise
 
@@ -39,17 +50,27 @@ async function scanGroup(folder) {
     }
   }
   await collect(root, 0)
+  metrics.scans++
+  const summary = { rules, regexes, methods, guards }
+  const currentFiles = new Set(files)
+  for (const [file, item] of fileCache) if (item.folder === folder && !currentFiles.has(file)) fileCache.delete(file)
   let bytes = 0
   for (const file of files) {
     try {
       const stat = await fs.stat(file)
       if (stat.size > 1024 * 1024 || bytes + stat.size > 8 * 1024 * 1024) continue
       bytes += stat.size
+      const signature = `${stat.mtimeMs}:${stat.ctimeMs}:${stat.size}:${stat.ino}`
+      const cached = fileCache.get(file)
+      if (cached?.signature === signature) { metrics.cacheHits++; combine(summary, cached.data); continue }
+      const rules = new Map(), regexes = new Map(), methods = new Map(), guards = new Set()
+      const data = { rules, regexes, methods, guards }
       const source = await fs.readFile(file, 'utf8')
+      metrics.filesParsed++
       const comments = []
       let tree
       try { tree = parse(source, { ecmaVersion: 'latest', sourceType: 'module', allowHashBang: true, onComment: comments }) }
-      catch { continue }
+      catch { metrics.errors++; keepFile(file, { folder, signature, data }); continue }
       const docBefore = node => {
         const comment = comments.filter(c => c.end <= node.start).pop()
         if (!comment || source.slice(comment.end, node.start).trim()) return ''
@@ -97,15 +118,17 @@ async function scanGroup(folder) {
         }
       }
       walk(tree)
+      keepFile(file, { folder, signature, data })
+      combine(summary, data)
     } catch (error) { globalThis.logger?.debug?.(`[指令帮助] 读取源码说明失败 ${folder}: ${error.message}`) }
   }
   return { rules, regexes, methods, guards }
 }
 
 /** 仅为已注册规则补说明；不导入其他插件，不执行源码。
- * 缓存跟随加载器实例身份；同实例内修改说明最多缓存 30 秒。
+ * 目录快照最多缓存30秒；按文件mtime/ctime/大小复用解析结果，只解析新增和变动文件。
  */
-export async function enrichDescriptions(records) {
+export async function enrichDescriptions(records, { force = false } = {}) {
   const groups = new Map()
   for (const record of records) {
     if (!groups.has(record.group)) groups.set(record.group, [])
@@ -114,7 +137,7 @@ export async function enrichDescriptions(records) {
   for (const [folder, list] of groups) {
     const owners = new Set(list.map(record => record.instance))
     let item = cache.get(folder)
-    if (!item || item.expires < Date.now() || [...owners].some(owner => !item.owners.has(owner))) {
+    if (force || !item || item.expires < Date.now() || [...owners].some(owner => !item.owners.has(owner))) {
       item = { owners, expires: Date.now() + 30000, promise: scanGroup(folder) }
       if (cache.size >= 100 && !cache.has(folder)) cache.delete(cache.keys().next().value)
       cache.set(folder, item)
@@ -125,6 +148,7 @@ export async function enrichDescriptions(records) {
       const fnc = typeof record.rule?.fnc === 'string' ? record.rule.fnc : record.rule?.fnc?.name || ''
       const className = record.entry?.class?.name || record.instance?.constructor?.name || ''
       if (data.guards.has(JSON.stringify([className, fnc]))) record.sourcePermission = 'master'
+      else delete record.sourcePermission
       record.sourceDescription = unambiguous(data.rules, JSON.stringify([record.source, record.flags, fnc])) || unambiguous(data.regexes, JSON.stringify([record.source, record.flags])) || unambiguous(data.methods, JSON.stringify([className, fnc]))
     }
   }
