@@ -122,37 +122,6 @@ npm --prefix ./plugins/command-help-plugin install --workspaces=false --ignore-s
 
 目录卡片上方始终保留原始英文目录名，下方保留可靠中文查询，如 `xhh-TL` / `#指令小火花`。旧目录名仍可用，未知插件不乱起名字。中文品牌精确匹配优先，不让 wiki 冒领喵喵。
 
-example、demo 只从图片/文字目录隐藏，不卸载、不禁用，仍受正常权限和场景检查。
-
-| 插件目录（不区分大小写） | 中文查询别名 | 推荐查询 |
-| --- | --- | --- |
-| xhh-tl | 小火花 | `#指令小火花` |
-| miao-plugin | 喵喵 | `#指令喵喵` |
-| guoba-plugin | 锅巴 | `#指令锅巴` |
-| gloryofkings-plugin | 王者插件 | `#指令王者` |
-| yenai-plugin | 椰奶 | `#指令椰奶` |
-| hs-qiqi-plugin | 枫叶 | `#指令枫叶` |
-| meme-plugin | 表情包 | `#指令表情包` |
-| relay-checkin-plugin | 中转签到 | `#指令中转签到` |
-| xitian-plugin | 插件管理器 | `#指令插件管理器` |
-| command-help-plugin | 指令帮助 | `#指令帮助插件` |
-| atme-plugin | 艾特记录 | `#指令艾特记录` |
-| rconsole-plugin | R插件 | `#指令R插件` |
-| atlas | Atlas图鉴 | `#指令Atlas图鉴` |
-| gscore-adapter | 早柚适配器 | `#指令早柚` |
-| game-qr-login-plugins | 游戏扫码登录 | `#指令游戏扫码` |
-| xiaoyao-cvs-plugin | 米游社扫码 | `#指令米游社扫码` |
-| xiaofei-plugin | 小飞 | `#指令小飞` |
-| xianxin-plugin | 闲心 | `#指令闲心` |
-| suiyue | 碎月 | `#指令碎月` |
-| quote-plugin | 群聊语录 | `#指令语录` |
-| douyin-sticker-plugin | 抖音表情包 | `#指令抖音表情包` |
-| genshin | 原神基础 | `#指令原神` |
-| hl-ai-plugin | AI对话 | `#指令AI对话` |
-| ffmpeg-plugin | FFmpeg多媒体 | `#指令FFmpeg` |
-| trss-plugin | TRSS插件 | `#指令TRSS` |
-| wiki | Wiki扩展 | `#指令Wiki扩展` |
-| system | 系统功能 | `#指令系统功能` |
 
 
 ## 框架兼容与边界
@@ -161,24 +130,8 @@ example、demo 只从图片/文字目录隐藏，不卸载、不禁用，仍受�
 
 JiuLi Linux 真机验证与 Miao/TRSS 注册表结构契约测试分开报告；不能以一侧运行结果代替所有平台实测。Windows、其他框架的真实运行进程仍待后续验证。
 
-## 与 xitian 共存
-
-本插件 -501 先于 xitian -500 接管 `#测试命令`；不修改 xitian 的 `#测试执行命令`，也不提供执行模式。框架上下文或更高优先级插件仍可能先处理查询。
 
 
-## 更新
-
-在框架根目录执行：
-
-```sh
-git -C ./plugins/command-help-plugin pull --ff-only
-```
-
-更新依赖：
-
-```sh
-npm --prefix ./plugins/command-help-plugin install --workspaces=false --ignore-scripts
-```
 
 ## 反馈与源码
 
@@ -189,7 +142,6 @@ npm --prefix ./plugins/command-help-plugin install --workspaces=false --ignore-s
 
 反馈时请附上框架名称、Node.js 版本、实际发送的查询指令和相关错误日志；不要提交 Cookie、令牌、机器人账号或群成员隐私。
 
-本项目为独立插件，不会修改小火花、王者、xitian 或宿主框架的源码。指令测试参考 xitian 的使用方式；界面使用本插件自有模板。
 
 ## 许可证
 
