@@ -16,10 +16,10 @@ const identify = value => {
  */
 export function registrySignature(loader) {
   if (!Array.isArray(loader.priority)) throw new Error('加载器未提供注册表')
-  return JSON.stringify(loader.priority.map(entry => {
+  return JSON.stringify(loader.priority.filter(Boolean).map(entry => {
     const instance = entry.plugin || {}
     return [entry.key, entry.name, identify(entry.class), identify(instance), String(entry.priority), instance.event, instance.dsc, instance.desc, instance.description,
-      (Array.isArray(instance.rule) ? instance.rule : []).map(rule => [identify(rule), rule.reg instanceof RegExp ? rule.reg.source : String(rule.reg), rule.reg?.flags || '', identify(rule.fnc), rule.event, rule.permission, rule.dsc, rule.desc, rule.describe, rule.description])]
+      (Array.isArray(instance.rule) ? instance.rule : []).filter(Boolean).map(rule => [identify(rule), rule.reg instanceof RegExp ? rule.reg.source : String(rule.reg), rule.reg?.flags || '', identify(rule.fnc), rule.event, rule.permission, rule.dsc, rule.desc, rule.describe, rule.description])]
   }))
 }
 

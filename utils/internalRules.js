@@ -7,7 +7,7 @@ const UNKNOWN = Symbol('unknown')
 
 /** 只解释白名单中的静态数据节点，不 import 目标插件、不 eval、不执行函数。 */
 async function readTable(folder) {
-  const { parse } = await import('acorn')
+  const { parse } = await import('../vendor/acorn/acorn.mjs')
   const root = await fs.realpath(path.join(pluginsRoot, folder))
   const loaded = new Map()
   const modules = async (file, depth = 0) => {

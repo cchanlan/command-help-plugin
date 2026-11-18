@@ -21,7 +21,7 @@ async function scanGroup(folder) {
   const root = path.resolve(pluginsRoot, folder)
   const relative = path.relative(pluginsRoot, root)
   if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return null
-  parserPromise ||= import('acorn').then(module => module.parse).catch(error => {
+  parserPromise ||= import('../vendor/acorn/acorn.mjs').then(module => module.parse).catch(error => {
     globalThis.logger?.warn?.(`[指令帮助] 源码说明解析不可用: ${error.message}`)
     return null
   })

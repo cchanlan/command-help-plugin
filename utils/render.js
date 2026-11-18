@@ -1,32 +1,31 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { helpSections } from './helpContent.js'
-import { brief } from './details.js'
 import { directoryGroups, pluginLabel } from './pluginNames.js'
 import { sendSucceeded } from './send.js'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const pluginName = path.basename(root.replace(/[\\/]$/, ''))
-export function imageData(kind, catalog) {
+export const DIRECTORY_PAGE_SIZE = 24
+const sections = [
+  ['entry', '从这里开始'], ['search', '找到你要的指令'],
+  ['match', '测试与排查'], ['maintain', '插件维护'],
+]
+export function imageData(kind, catalog, page = 1) {
+  const plugins = kind === 'directory' ? directoryGroups(catalog).map(group => ({
+    name: group.folder, command: `#指令${pluginLabel(group).query}`,
+  })) : []
+  const pages = Math.max(1, Math.ceil(plugins.length / DIRECTORY_PAGE_SIZE))
+  const validPage = Number.isSafeInteger(page) && page >= 1 && page <= pages
   return {
-    kind,
-    title: kind === 'directory' ? '插件指令目录' : '指令使用帮助',
+    kind, title: kind === 'directory' ? '插件指令目录' : '指令帮助',
     intro: kind === 'directory' ? '按插件查找，发现更多功能。' : '指令帮助',
-    outro: '随用随查，不必记住所有指令。',
-    sections: helpSections,
-    helpGroups: [
-      { title: '常用入口', list: [helpSections[0], helpSections[1]] },
-      { title: '查找指令', list: [helpSections[2], helpSections[3]] },
-      { title: '匹配与诊断', list: [helpSections[4], helpSections[8]] },
-      { title: '翻页与维护', list: [helpSections[5], helpSections[6], helpSections[7]] },
-    ].map(group => ({ ...group, list: group.list.map(item => ({
-      ...item,
-      aliasList: item.aliases.split(' / '),
-    })) })),
-    plugins: kind === 'directory' ? directoryGroups(catalog).map(group => {
-      const label = pluginLabel(group)
-      return { name: brief(group.folder, 40), command: `#指令${label.query}` }
-    }) : [],
+    outro: '指令帮助', page, pages, validPage,
+    nextCommand: validPage && page < pages ? `#指令 第${page + 1}页` : '',
+    helpGroups: sections.map(([id, title]) => ({ id, title,
+      list: helpSections.filter(item => item.group === id).map(item => ({ ...item, aliasList: item.aliases.split(' / ') })),
+    })),
+    plugins: validPage ? plugins.slice((page - 1) * DIRECTORY_PAGE_SIZE, page * DIRECTORY_PAGE_SIZE) : [],
   }
 }
 
@@ -92,13 +91,13 @@ const imageService = createImageService(async (kind, data) => {
   })
 })
 
-export async function renderHelpImage(kind, catalog) {
-  try { return await imageService(kind, imageData(kind, catalog)) }
+export async function renderHelpImage(kind, catalog, page = 1) {
+  try { return await imageService(kind, imageData(kind, catalog, page)) }
   catch (error) { globalThis.logger?.warn?.(`[指令帮助] 出图数据错误: ${error.message}`); return false }
 }
 
-export async function replyHelpImage(e, kind, catalog) {
-  const image = await renderHelpImage(kind, catalog)
+export async function replyHelpImage(e, kind, catalog, page = 1) {
+  const image = await renderHelpImage(kind, catalog, page)
   if (!image) return false
   try { return sendSucceeded(await e.reply(image)) }
   catch (error) { globalThis.logger?.warn?.(`[指令帮助] 图片发送失败: ${error.message}`); return false }

@@ -1,32 +1,13 @@
 import plugin from '../../../lib/plugins/plugin.js'
 import loader from '../../../lib/plugins/loader.js'
-import { findGroups, related, visibleRules, normalizeName } from '../utils/catalog.js'
+import { related, visibleRules } from '../utils/catalog.js'
 import { getCatalog, visibleCatalog } from '../utils/searchIndex.js'
 import { matchRules } from '../utils/matcher.js'
 import { helpText, parseQuery, commandBlocks, conflictBlocks, sendPage } from '../utils/output.js'
-import { replyHelpImage } from '../utils/render.js'
-import { directoryGroups, pluginLabel } from '../utils/pluginNames.js'
+import { replyHelpImage, imageData } from '../utils/render.js'
 import { updatePlugin } from '../utils/updater.js'
-
-/** 整名优先，再按最长插件名前缀识别「插件 关键词」。 */
-export function resolveScope(groups, query, includeModules = false) {
-  const exact = text => {
-    const needle = normalizeName(text)
-    return groups.filter(group => [...(includeModules ? group.names : group.aliases), group.displayName, group.queryName].some(name => name && normalizeName(name) === needle))
-  }
-  const whole = exact(query)
-  if (whole.length) return { groups: whole, keyword: '' }
-  const spaces = [...query.matchAll(/\s+/g)].map(match => match.index).reverse()
-  // 先尝试准确的插件名前缀，不让「小火花体力阈值」这种模块名模糊匹配吞掉关键词。
-  for (const lookup of [exact, text => findGroups(groups, text, includeModules)]) {
-    for (const index of spaces) {
-      const found = lookup(query.slice(0, index))
-      if (found.length) return { groups: found, keyword: query.slice(index).trim() }
-    }
-  }
-  const fuzzy = findGroups(groups, query, includeModules)
-  return { groups: fuzzy, keyword: fuzzy.length ? '' : query }
-}
+import { resolveScope } from '../utils/scope.js'
+export { resolveScope } from '../utils/scope.js'
 
 export class CommandHelp extends plugin {
   constructor() {
@@ -52,10 +33,8 @@ export class CommandHelp extends plugin {
     if (task.kind === 'busy') { await e.reply('更新正在进行中，请稍后查看。'); return true }
     await e.reply('正在更新指令帮助插件。')
     const result = await task.promise
-    if (result.kind === 'dependencies-failed') {
-      await e.reply(`${result.updated ? '代码已更新，' : ''}依赖安装失败。请确认 pnpm 可用后重发 #指令更新。`)
-    } else if (result.kind === 'updated') {
-      await e.reply(result.dependenciesInstalled ? (result.updated ? '代码和依赖已更新。' : '依赖已更新。') : '指令帮助插件已更新。')
+    if (result.kind === 'updated') {
+      await e.reply('指令帮助插件已更新。')
     } else if (result.kind === 'current') await e.reply('指令帮助插件已是最新版本。')
     else await e.reply('更新失败，请查看运行日志。')
     return true
@@ -77,10 +56,12 @@ export class CommandHelp extends plugin {
       const catalog = visibleCatalog(fullCatalog, e, loader)
       let blocks = [], title
       if (mode === 'auto' && ['', '列表', '总览', '插件'].includes(query)) {
-        if (page === 1 && await replyHelpImage(e, 'directory', catalog)) return true
-        const visible = directoryGroups(catalog)
-        title = `指令目录 · ${visible.length}个插件`
-        blocks = [helpText, ...visible.map(group => `${group.folder}：#指令${pluginLabel(group).query}`)]
+        const data = imageData('directory', catalog, page)
+        if (!data.validPage) { await e.reply(`共${data.pages}页，请发送：#指令 第${data.pages}页`); return true }
+        if (await replyHelpImage(e, 'directory', catalog, page)) return true
+        const text = [`插件指令目录 · 第${data.page}/${data.pages}页`, ...data.plugins.map(item => `${item.name}：${item.command}`), data.nextCommand ? `下一页：${data.nextCommand}` : '使用帮助：#指令帮助'].join('\n')
+        await e.reply(text)
+        return true
       } else {
         const scope = ['auto','plugin'].includes(mode) ? resolveScope(catalog.groups, query, mode === 'plugin') : { groups: [], keyword: query }
         if (scope.groups.length && !scope.keyword) {
